@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Signet Demo UI</title>
+    <style>
+      body {
+        font-family: monospace;
+        background: #f9f9f9;
+        padding: 2rem;
+      }
+      button {
+        margin: 4px;
+        padding: 6px 12px;
+        background: #333;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      .log {
+        background: #000;
+        color: #0f0;
+        padding: 1rem;
+        margin-top: 1rem;
+        height: 800px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Signet Demo (Vanilla JS)</h1>
+
+    <div>
+      <button
+        onclick="enrollUser()"
+        title="Step 1: Perform a biometric authentication (simulated) and issue a passkey-grade Decentralized Identifier (DID) representing the human user. This is the strong customer authentication (SCA) root of trust."
+      >
+        1. Enroll User
+      </button>
+
+      <button
+        onclick="createAgent()"
+        title="Step 2: Create an AI agent and issue it a Delegation Verifiable Credential (VC). The VC binds the agent to the user’s DID, encodes scopes (e.g., 'pay'), spending limits (e.g., £100/day), and expiry. This enables the agent to act on the user's behalf under PSD2 rules."
+      >
+        2. Create Agent
+      </button>
+
+      <button
+        onclick="exchangeToken()"
+        title="Step 3: The AI agent presents its VC and a DPoP proof to receive a short-lived JWT access token. The token is bound to the agent’s public key and is compatible with PSD2/OpenBanking APIs. It lasts 5 minutes and includes the scope/limits defined in the VC."
+      >
+        3. Exchange VC
+      </button>
+
+      <button
+        onclick="callApi()"
+        title="Step 4: Use the JWT access token to invoke a simulated fintech API (e.g., make a payment or check balance). The token is verified, scopes are enforced, and actions are logged for audit. This demonstrates how autonomous agents can securely interact with banking APIs."
+      >
+        4. Call API
+      </button>
+
+      <button
+        onclick="revokeAgent()"
+        title="Step 5: Immediately revoke the agent’s Delegation VC. This triggers global propagation of revocation (simulated) in under 5 seconds, ensuring that the agent can no longer access protected APIs. Supports GDPR and PSD2 auditability."
+      >
+        5. Revoke Agent
+      </button>
+      <button
+        onclick="fetchAuditLogs()"
+        title="Step 6: View backend audit logs. Fields:
+          • type: 'VC_ISSUE' or 'VC_REVOKE' — what happened.
+          • timestamp: when it happened (ms).
+          • vcId: unique ID for the agent's credential.
+          • hash: SHA-256 hash of VC payload — privacy-preserving audit proof."
+      >
+        6. View Server Logs
+      </button>
+    </div>
+
+    <div id="state" style="margin-top: 1rem; font-size: 14px"></div>
+    <div class="log" id="log"></div>
+
+    <script>
+      let userDID = null;
+      let agentDID = null;
+      let vc = null;
+      let token = null;
+
+      const api = (path, method = "POST", data = {}) =>
+        fetch("http://localhost:3000/api/" + path, {
+          method,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        }).then((res) => res.json());
+
+      const log = (msg) => {
+        const el = document.getElementById("log");
+        el.textContent = `• ${msg}\n` + el.textContent;
+        updateState();
+      };
+
+      const updateState = () => {
+        document.getElementById("state").innerHTML = `
+        <b>User DID:</b> ${userDID || "-"}<br/>
+        <b>Agent DID:</b> ${agentDID || "-"}<br/>
+        <b>Token:</b> ${token ? token.slice(0, 50) + "..." : "-"}<br/>
+      `;
+      };
+
+      const enrollUser = async () => {
+        const res = await api("enroll", "POST", { email: "alice@example.com" });
+        userDID = res.did;
+        log(`Enrolled user: ${userDID}`);
+      };
+
+      const createAgent = async () => {
+        const res = await api("delegate", "POST", {
+          userEmail: "alice@example.com",
+          scope: { action: ["pay"], limit: 100 },
+        });
+
+        if (!res || !res.vc) {
+          log("Failed to create agent: " + (res.error || "unknown error"));
+          return;
+        }
+
+        vc = res.vc;
+        agentDID = vc.subject;
+        log(`Delegated to agent: ${agentDID}`);
+      };
+
+      const exchangeToken = async () => {
+        const res = await api("token", "POST", {
+          vc,
+          agentPublicKey: "agent-pubkey-xyz",
+          dpopProof: "agent-pubkey-xyz-proof",
+        });
+        token = res.token;
+        log("Received token");
+      };
+
+      const callApi = async () => {
+        const res = await fetch("http://localhost:3000/api/pay", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + token,
+            DPoP: "agent-pubkey-xyz-proof",
+          },
+          body: JSON.stringify({ amount: 25, currency: "GBP" }),
+        });
+        const json = await res.json();
+        log(`API: ${JSON.stringify(json)}`);
+      };
+
+      const revokeAgent = async () => {
+        await api("revoke", "POST", { agentDID });
+        log(`Revoked agent: ${agentDID}`);
+      };
+
+      const fetchAuditLogs = async () => {
+        const res = await fetch("http://localhost:3000/api/audit");
+        const json = await res.json();
+
+        if (!json.logs || !json.logs.length) {
+          log("ℹ️ No audit logs found");
+          return;
+        }
+
+        json.logs.forEach((entry) => {
+          const formatted = JSON.stringify(entry, null, 2);
+          log(`[Audit] ${entry.type}:\n${formatted}`);
+        });
+      };
+    </script>
+  </body>
+</html>
