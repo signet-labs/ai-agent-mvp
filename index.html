@@ -142,7 +142,7 @@
       };
 
       const callApi = async () => {
-        const res = await fetch("http://localhost:3000/api/pay", {
+        const res = await fetch("https://ai-agent-mvp.onrender.com/api/pay", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -161,7 +161,7 @@
       };
 
       const fetchAuditLogs = async () => {
-        const res = await fetch("http://localhost:3000/api/audit");
+        const res = await fetch("https://ai-agent-mvp.onrender.com/api/audit");
         const json = await res.json();
 
         if (!json.logs || !json.logs.length) {
