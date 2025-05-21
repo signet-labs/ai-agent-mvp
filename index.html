@@ -89,7 +89,7 @@
       let token = null;
 
       const api = (path, method = "POST", data = {}) =>
-        fetch("http://localhost:3000/api/" + path, {
+        fetch("https://ai-agent-mvp.onrender.com/api/" + path, {
           method,
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(data),

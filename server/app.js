@@ -15,6 +15,13 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
+app.use(
+  cors({
+    origin: ["http://localhost:3000", "https://your-frontend.pages.dev"],
+    credentials: true,
+  })
+);
+
 // FIXED: Serve static files from correct relative path
 app.use(express.static(path.join(__dirname, "../")));
 
@@ -31,4 +38,4 @@ app.use("/api/pay", payRouter);
 app.use("/api/revoke", revokeRouter);
 app.use("/api/audit", auditRouter);
 
-app.listen(3000, () => console.log("Signet demo backend running on port 3000"));
+app.listen(3000, () => console.log("Signet demo backend running."));
