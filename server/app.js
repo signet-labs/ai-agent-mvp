@@ -16,11 +16,11 @@ app.use(cors());
 app.use(bodyParser.json());
 
 // FIXED: Serve static files from correct relative path
-app.use(express.static(path.join(__dirname, "../public")));
+app.use(express.static(path.join(__dirname, "../")));
 
 // Optional: Fallback route for browser hitting root
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "../public/index.html"));
+  res.sendFile(path.join(__dirname, "../index.html"));
 });
 
 // API routes
